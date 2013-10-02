@@ -10,7 +10,7 @@ description := "Use taggers project to extract patterns"
 
 version := "0.2"
 
-mainClass in assembly := Some("edu.knowitall.taggers.app.TripleExtractorApp")
+mainClass in assembly := Some("edu.washington.cs.knowitall.taggers.TripleExtractorApp")
 
 jarName in assembly := "tripleExtractorApp.jar"
 
@@ -22,10 +22,10 @@ resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repos
 
 libraryDependencies ++= Seq(
     "com.google.guava" % "guava" % "13.0.1",
-    "edu.washington.cs.knowitall.nlptools" %% "nlptools-core" % "2.4.2",
-    "edu.washington.cs.knowitall.nlptools" %% "nlptools-chunk-opennlp" % "2.4.2",
-    "edu.washington.cs.knowitall.nlptools" %% "nlptools-stem-morpha" % "2.4.2",
-    "edu.washington.cs.knowitall.nlptools" %% "nlptools-typer-stanford" % "2.4.2",
+    "edu.washington.cs.knowitall.nlptools" %% "nlptools-core" % "2.4.3",
+    "edu.washington.cs.knowitall.nlptools" %% "nlptools-chunk-opennlp" % "2.4.3",
+    "edu.washington.cs.knowitall.nlptools" %% "nlptools-stem-morpha" % "2.4.3",
+    "edu.washington.cs.knowitall.nlptools" %% "nlptools-typer-stanford" % "2.4.3",
     "edu.washington.cs.knowitall" %% "openregex-scala" % "1.0.4",
     "org.apache.commons" % "commons-lang3" % "3.1",
     "org.jdom" % "jdom2" % "2.0.5",
