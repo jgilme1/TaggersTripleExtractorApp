@@ -1,34 +1,21 @@
 package edu.washington.cs.knowitall.taggers;
 
 
-import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.PrintWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+
 
 import org.apache.commons.io.FileUtils;
 import org.jdom2.JDOMException;
-import org.jdom2.input.SAXBuilder;
-import org.jdom2.Document;
 
-import com.google.common.io.Files;
 
-import scala.util.matching.Regex;
-import scala.xml.XML;
 
-import edu.knowitall.collection.immutable.Interval;
 import edu.knowitall.taggers.TaggerCollection;
-import edu.knowitall.taggers.pattern.TypedToken;
 import edu.knowitall.taggers.tag.Tagger;
 import edu.knowitall.tool.chunk.ChunkedToken;
 import edu.knowitall.tool.chunk.OpenNlpChunker;
