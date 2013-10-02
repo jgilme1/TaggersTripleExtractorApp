@@ -88,7 +88,6 @@ public class TripleExtractorApp {
 	            }	            
 	          //  List<Type> types = t.tag(scala.  tokens);
 	            List<Type> types = scala.collection.JavaConversions.asJavaList(t.tag(scala.collection.JavaConversions.asScalaBuffer(tokens).seq()));
-	            System.out.println(line);
 	            
 
 	            
@@ -111,7 +110,7 @@ public class TripleExtractorApp {
 		            });
 		            
 		            for(Type type: relevantTypes){
-		              if(type.name().equals(level)) pw.write(type + " ");
+		              if(type.name().equals(level)) pw.write(type.name()+"{"+type.tokenInterval()+":"+type.text()+"}" + " ");
 		            }
 	            		//if we are at the highest level write group matches as well
             		if(taggerDescriptors[taggerDescriptors.length-1] == level){
