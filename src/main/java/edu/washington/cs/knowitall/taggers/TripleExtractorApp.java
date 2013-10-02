@@ -22,6 +22,7 @@ import edu.knowitall.tool.chunk.OpenNlpChunker;
 import edu.knowitall.tool.stem.Lemmatized;
 import edu.knowitall.tool.stem.MorphaStemmer;
 import edu.knowitall.tool.typer.Type;
+import edu.knowitall.taggers.LinkedType;
 
 public class TripleExtractorApp {
 	
@@ -75,7 +76,6 @@ public class TripleExtractorApp {
 	            }	            
 	          //  List<Type> types = t.tag(scala.  tokens);
 	            List<Type> types = scala.collection.JavaConversions.asJavaList(t.tag(scala.collection.JavaConversions.asScalaBuffer(tokens).seq()));
-	            
 
 	            
 	            
@@ -102,8 +102,13 @@ public class TripleExtractorApp {
 	            		//if we are at the highest level write group matches as well
             		if(taggerDescriptors[taggerDescriptors.length-1] == level){
             			for(Type type: relevantTypes){
-		            		if(!type.name().equals(level)){
-		            			pw.write("\t"+type.name().substring(level.length()+1)+":"+type.text());
+//		            		if(!type.name().equals(level)){
+//		            			pw.write("\t"+type.name().substring(level.length()+1)+":"+type.text());
+//		            		}
+		            		if(type instanceof LinkedType){		            			
+		            			if(((LinkedType) type).link().isDefined())
+		            				if(((LinkedType) type).link().get().name() == level)
+		            			        pw.write("\t"+type.name().substring(level.length()+1)+":"+type.text());
 		            		}
             			}
             			pw.write("\t");
