@@ -7,7 +7,9 @@ import java.io.PrintWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 
 import org.apache.commons.io.FileUtils;
@@ -25,6 +27,29 @@ import edu.knowitall.tool.typer.Type;
 import edu.knowitall.taggers.LinkedType;
 
 public class TripleExtractorApp {
+	
+	public class Extraction{
+		String patternName;
+		List<LinkedType> extractionParts;
+		
+		public Extraction(String patternName, List<LinkedType> extractionParts){
+			this.patternName = patternName;
+			this.extractionParts = extractionParts;
+		}
+		
+		@Override
+		public String toString(){
+			StringBuilder sb = new StringBuilder();
+			sb.append(patternName+": ");
+			
+			
+			for(LinkedType lt: this.extractionParts){
+				sb.append(lt.name().replace(this.patternName+".","")+":");
+				sb.append(lt.text() + " ");
+			}
+			return sb.toString().trim();
+		}
+	}
 	
 	
 	
@@ -100,20 +125,60 @@ public class TripleExtractorApp {
 		              if(type.name().equals(level)) pw.write(type.name()+"{"+type.tokenInterval()+":"+type.text()+"}" + " ");
 		            }
 	            		//if we are at the highest level write group matches as well
-            		if(taggerDescriptors[taggerDescriptors.length-1] == level){
-            			for(Type type: relevantTypes){
-//		            		if(!type.name().equals(level)){
-//		            			pw.write("\t"+type.name().substring(level.length()+1)+":"+type.text());
+//            		if(taggerDescriptors[taggerDescriptors.length-1] == level){
+//            			for(Type type: relevantTypes){
+////		            		if(!type.name().equals(level)){
+////		            			pw.write("\t"+type.name().substring(level.length()+1)+":"+type.text());
+////		            		}
+//		            		if(type instanceof LinkedType){		            			
+//		            			if(((LinkedType) type).link().isDefined())
+//		            				if(((LinkedType) type).link().get().name() == level)
+//		            			        pw.write("\t"+type.name().substring(level.length()+1)+":"+type.text());
 //		            		}
-		            		if(type instanceof LinkedType){		            			
-		            			if(((LinkedType) type).link().isDefined())
-		            				if(((LinkedType) type).link().get().name() == level)
-		            			        pw.write("\t"+type.name().substring(level.length()+1)+":"+type.text());
-		            		}
-            			}
-            			pw.write("\t");
-            		}
+//            			}
+//            			pw.write("\t");
+//            		}
 	            }
+	            
+	            Map<Type,List<LinkedType>> typeNamedGroupTypeMap = new HashMap<Type,List<LinkedType>>();
+	            List<Extraction> extractions = new ArrayList<Extraction>();
+	            
+				for (Type typ : types) {
+					if (typ instanceof LinkedType) {
+						scala.Option<Type> parentLink = ((LinkedType) typ).link();
+						if (parentLink.isDefined()) {
+							if (typ.name().split("\\.").length > 1) {
+								if (typ.name().split("\\.")[1].contains("T")) {
+									if (typeNamedGroupTypeMap.containsKey(parentLink.get())) {
+										typeNamedGroupTypeMap.get(parentLink.get()).add((LinkedType) typ);
+									} else {
+										List<LinkedType> namedGroupTypes = new ArrayList<LinkedType>();
+										namedGroupTypes.add((LinkedType) typ);
+										typeNamedGroupTypeMap.put(parentLink.get(),namedGroupTypes);
+									}
+								}
+							}
+						}
+					}
+				}
+	            
+				
+	            //turn map from parent types to children named group types into list of ordered extractions
+	            for(String level: taggerDescriptors){
+	            	for(Type typ : typeNamedGroupTypeMap.keySet()){
+	            		if(typ.name().equals(level)){
+	            			extractions.add(new TripleExtractorApp().new Extraction(typ.name(),typeNamedGroupTypeMap.get(typ)));
+	            		}
+	            	}
+	            }
+	            
+	            //print extractions tab separated in line
+	            
+	            for(Extraction extr: extractions){
+	            	pw.write("\t"+extr.toString());
+	            }
+	            
+	            
 	            pw.write("\n");
 			}				
 			
@@ -121,22 +186,7 @@ public class TripleExtractorApp {
 			pw.close();
 	}
 	
-//	private static String refactorPatterns(String patternString){
-//		Pattern typePattern = Pattern.compile("<type=([^>]+)>\\+");
-//		
-//		
-//		Matcher typePatternMatcher = typePattern.matcher(patternString);
-//		int start =0;
-//		while(start < patternString.length() && typePatternMatcher.find(start)){
-//			String group1 = typePatternMatcher.group(1);
-//			String replacementString = "(<typeStart="+group1+" & typeEnd="+group1+"> | (<typeStart="+group1+"> <type="+group1+">* <typeEnd="+group1+">))";
-//			patternString = patternString.substring(0, typePatternMatcher.start()) + replacementString + patternString.substring(typePatternMatcher.end());
-//			start = typePatternMatcher.start() + replacementString.length();
-//			typePatternMatcher = typePattern.matcher(patternString);
-//		}
-//		
-//		return patternString;
-//	}
+
 
 	private static void writeHeader(PrintWriter pw, String[] taggerList){		 
 		pw.write("sentence\tpos");
@@ -149,30 +199,30 @@ public class TripleExtractorApp {
 	}
 	
 	
-	private static String findLevel(Type type, File taggerDirectory) throws IOException{
-		
-		List<String> typeDescriptors = new ArrayList<String>();
-		typeDescriptors.add(type.name());
-		if(type.source() != null){
-			typeDescriptors.add(type.source());
-		}
-		
-		for(File subDir : taggerDirectory.listFiles()){
-			if(subDir.isDirectory()){
-				String level = subDir.getName();
-				for(File x: subDir.listFiles()){
-					String xString = FileUtils.readFileToString(x);
-					for(String descriptionString : typeDescriptors){
-						if(xString.indexOf("descriptor=\""+descriptionString+"\">") != -1){
-							return level;
-						}
-						
-					}
-				}
-			}
-		}
-		
-		return "-1";
-	}
+//	private static String findLevel(Type type, File taggerDirectory) throws IOException{
+//		
+//		List<String> typeDescriptors = new ArrayList<String>();
+//		typeDescriptors.add(type.name());
+//		if(type.source() != null){
+//			typeDescriptors.add(type.source());
+//		}
+//		
+//		for(File subDir : taggerDirectory.listFiles()){
+//			if(subDir.isDirectory()){
+//				String level = subDir.getName();
+//				for(File x: subDir.listFiles()){
+//					String xString = FileUtils.readFileToString(x);
+//					for(String descriptionString : typeDescriptors){
+//						if(xString.indexOf("descriptor=\""+descriptionString+"\">") != -1){
+//							return level;
+//						}
+//						
+//					}
+//				}
+//			}
+//		}
+//		
+//		return "-1";
+//	}
 }
 			
