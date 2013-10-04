@@ -7,7 +7,9 @@ import java.io.PrintWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 
 import org.apache.commons.io.FileUtils;
@@ -27,6 +29,37 @@ import edu.knowitall.taggers.LinkedType;
 public class TripleExtractorApp {
 	
 	
+	/**
+	 * Extraction rough draft includes name of pattern that matched
+	 * and a list of the named groups that are linked to it.
+	 * @author jgilme1
+	 *
+	 */
+	public class Extraction{
+		String patternName;
+		List<LinkedType> extractionParts;
+		
+		public Extraction(String patternName, List<LinkedType> extractionParts){
+			this.patternName = patternName;
+			this.extractionParts = extractionParts;
+		}
+		
+		@Override
+		public String toString(){
+			StringBuilder sb = new StringBuilder();
+			sb.append(patternName+":");
+			
+			
+			for(LinkedType lt: this.extractionParts){
+				sb.append("\t");
+				sb.append(lt.name().replace(this.patternName+".","")+":");
+				sb.append(lt.text());
+			}
+			return sb.toString().trim();
+		}
+	}
+	
+	
 	
 	public static void main(String[] args) throws SecurityException, IllegalArgumentException, ClassNotFoundException, NoSuchMethodException, InstantiationException, IllegalAccessException, InvocationTargetException, JDOMException, IOException{
 		if(args.length != 3){
@@ -41,27 +74,32 @@ public class TripleExtractorApp {
 			String outputPath = args[2];
 			
 			String patternString = FileUtils.readFileToString(new File(taggerPath));
-			//patternString = refactorPatterns(patternString);
 			
 			
+			
+			//Create tagger collection from input pattern string
 			TaggerCollection t = TaggerCollection.fromString(patternString);
+			
+			//get tagger names and store them in taggerDescriptors array
 			List<Tagger> taggers = scala.collection.JavaConversions.asJavaList(t.taggers());
 			String[] taggerDescriptors = new String[taggers.size()];
 			for(int i = 0; i < taggerDescriptors.length; i++){
 				taggerDescriptors[i] = taggers.get(i).name();
 			}
 									
+			//load in input text
 			String inputFileString = FileUtils.readFileToString(new File(inputPath));
 			
-			
-			
+			//initialize output with header
 			PrintWriter pw = new PrintWriter(new File(outputPath));
-
-			
 			writeHeader(pw,taggerDescriptors);
+			
+			//initialize chunker and stemmer to pass parameters to the tag method
 	        OpenNlpChunker chunker = new OpenNlpChunker();
 	        MorphaStemmer morpha = new MorphaStemmer();
 		
+	        
+	        //Treat each line in input doc as a sentence
 			for(String line : inputFileString.split("\n")){
 				
 	            List<ChunkedToken> chunkedSentence = scala.collection.JavaConverters.seqAsJavaListConverter(chunker.chunk(line)).asJava();
@@ -73,47 +111,84 @@ public class TripleExtractorApp {
 	            pw.write(line.trim()+"\t");
 	            for(Lemmatized<ChunkedToken> tok: tokens){
 	            	pw.write(tok.token().postag()+" ");
-	            }	            
-	          //  List<Type> types = t.tag(scala.  tokens);
+	            }
+	            
+	            //get all of the matching types from the sentence
 	            List<Type> types = scala.collection.JavaConversions.asJavaList(t.tag(scala.collection.JavaConversions.asScalaBuffer(tokens).seq()));
 
 	            
-	            
+	            //iterate over taggers in order
 	            for(String level: taggerDescriptors){
 		            pw.write("\t");
 		            
             		List<Type> relevantTypes = new ArrayList<Type>();
 
+            		//relevantTypes are Type matches that begin with the PatternName
 	            	for(Type type: types){
 						if(type.name().startsWith(level)){
 	            			relevantTypes.add(type);
 	            		}
 	            	}
-	            		
+	            
+	            	//sort types by order of their intervals
 		            java.util.Collections.sort(relevantTypes, new Comparator<Type> (){
 	            	public int compare(Type t1, Type t2){
 	            		return t1.tokenInterval().compare(t2.tokenInterval());
 	            	}
 		            });
 		            
+		            //only output Types that match the taggerName exactly, so no groupTypes will be output here
 		            for(Type type: relevantTypes){
 		              if(type.name().equals(level)) pw.write(type.name()+"{"+type.tokenInterval()+":"+type.text()+"}" + " ");
 		            }
-	            		//if we are at the highest level write group matches as well
-            		if(taggerDescriptors[taggerDescriptors.length-1] == level){
-            			for(Type type: relevantTypes){
-//		            		if(!type.name().equals(level)){
-//		            			pw.write("\t"+type.name().substring(level.length()+1)+":"+type.text());
-//		            		}
-		            		if(type instanceof LinkedType){		            			
-		            			if(((LinkedType) type).link().isDefined())
-		            				if(((LinkedType) type).link().get().name() == level)
-		            			        pw.write("\t"+type.name().substring(level.length()+1)+":"+type.text());
-		            		}
-            			}
-            			pw.write("\t");
-            		}
+
 	            }
+	            
+	            //initialize map for Type to linked children types 
+	            //initialize list of extractions
+	            Map<Type,List<LinkedType>> typeNamedGroupTypeMap = new HashMap<Type,List<LinkedType>>();
+	            List<Extraction> extractions = new ArrayList<Extraction>();
+	            
+	            //iterate over all matching types of the input sentence
+				for (Type typ : types) {
+					// if the type has a parent
+					if (typ instanceof LinkedType) {
+						scala.Option<Type> parentLink = ((LinkedType) typ).link();
+						if (parentLink.isDefined()) {
+							//if the type contains a T this is just to check if it is a namedgroup instead of a numbered group
+							//this can probably be checked with an instanceof call.
+							if (typ.name().split("\\.").length > 1) {
+								if (typ.name().split("\\.")[1].contains("T")) {
+									//update the map from ParentTypes to NamedGroups.
+									if (typeNamedGroupTypeMap.containsKey(parentLink.get())) {
+										typeNamedGroupTypeMap.get(parentLink.get()).add((LinkedType) typ);
+									} else {
+										List<LinkedType> namedGroupTypes = new ArrayList<LinkedType>();
+										namedGroupTypes.add((LinkedType) typ);
+										typeNamedGroupTypeMap.put(parentLink.get(),namedGroupTypes);
+									}
+								}
+							}
+						}
+					}
+				}
+	            
+				
+	            //turn map from parent types to children named group types into list of ordered extractions
+	            for(String level: taggerDescriptors){
+	            	for(Type typ : typeNamedGroupTypeMap.keySet()){
+	            		if(typ.name().equals(level)){
+	            			extractions.add(new TripleExtractorApp().new Extraction(typ.name(),typeNamedGroupTypeMap.get(typ)));
+	            		}
+	            	}
+	            }
+	            
+	            //print extractions tab separated in line
+	            for(Extraction extr: extractions){
+	            	pw.write("\t"+extr.toString());
+	            }
+	            
+	            
 	            pw.write("\n");
 			}				
 			
@@ -121,22 +196,7 @@ public class TripleExtractorApp {
 			pw.close();
 	}
 	
-//	private static String refactorPatterns(String patternString){
-//		Pattern typePattern = Pattern.compile("<type=([^>]+)>\\+");
-//		
-//		
-//		Matcher typePatternMatcher = typePattern.matcher(patternString);
-//		int start =0;
-//		while(start < patternString.length() && typePatternMatcher.find(start)){
-//			String group1 = typePatternMatcher.group(1);
-//			String replacementString = "(<typeStart="+group1+" & typeEnd="+group1+"> | (<typeStart="+group1+"> <type="+group1+">* <typeEnd="+group1+">))";
-//			patternString = patternString.substring(0, typePatternMatcher.start()) + replacementString + patternString.substring(typePatternMatcher.end());
-//			start = typePatternMatcher.start() + replacementString.length();
-//			typePatternMatcher = typePattern.matcher(patternString);
-//		}
-//		
-//		return patternString;
-//	}
+
 
 	private static void writeHeader(PrintWriter pw, String[] taggerList){		 
 		pw.write("sentence\tpos");
@@ -146,33 +206,6 @@ public class TripleExtractorApp {
 		}
 		
 		pw.write("\tPattern components\n");
-	}
-	
-	
-	private static String findLevel(Type type, File taggerDirectory) throws IOException{
-		
-		List<String> typeDescriptors = new ArrayList<String>();
-		typeDescriptors.add(type.name());
-		if(type.source() != null){
-			typeDescriptors.add(type.source());
-		}
-		
-		for(File subDir : taggerDirectory.listFiles()){
-			if(subDir.isDirectory()){
-				String level = subDir.getName();
-				for(File x: subDir.listFiles()){
-					String xString = FileUtils.readFileToString(x);
-					for(String descriptionString : typeDescriptors){
-						if(xString.indexOf("descriptor=\""+descriptionString+"\">") != -1){
-							return level;
-						}
-						
-					}
-				}
-			}
-		}
-		
-		return "-1";
 	}
 }
 			
